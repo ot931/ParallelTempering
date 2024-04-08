@@ -6,7 +6,7 @@
 #include <random>
 #include <fstream>
 #include <time.h>
-
+#include <algorithm>
 
 // container's structure
 
@@ -115,6 +115,9 @@ public:
             }
         }
         
+        std::sort(temperatures.begin(), temperatures.end());
+
+
         return temperatures;
     };
 
@@ -317,9 +320,9 @@ int main()
 {
 
     int num_of_copies = 10;
-    int num_of_steps = 30;
+    int num_of_steps = 10;
     int size = 4;
-    float percent = 0.25;
+    float percent = 0.1;
     int accuracy = num_of_steps*percent;
 
 
