@@ -8,6 +8,7 @@
 #include <time.h>
 #include <algorithm>
 
+
 // container's structure
 
 struct _TEMPERING_CONTAINER
@@ -80,9 +81,12 @@ public:
 
     std::vector<float> temperature_normalize(std::vector<float> temperatures, std::vector<double> energies, float alpha, int tn_steps)
     {
+        float tem;
+        float en;
+        
         for (int i = 1; i < NUM_OF_COPIES; i++)
         {
-            for (int j = 1; j < NUM_OF_COPIES; j++)
+            for (int j = i; j < NUM_OF_COPIES; j++)
             {
                 if (i != j)
                 {
@@ -90,9 +94,11 @@ public:
                     if (p < 0.2)
                     {
                         temperatures[i] = temperatures[j];
-                        float tem = temperatures[j];
                         energies[i] = energies[j];
-                        float ener = energies[j];
+
+                        tem = temperatures[i];
+                        en = energies[i];
+
                         break;
                     }
 
@@ -100,29 +106,36 @@ public:
                     {
                         for (int k = 0; k < tn_steps; k++)
                         { 
-                            double p = std::pow(2.718282, (((double)energies[i] - (double)energies[j])*(1 /(double)temperatures[i]-1/(double)temperatures[j])));
+                            double p = std::pow(2.718282, (((double)energies[j] - (double)energies[i])*(1 /(double)temperatures[j]-1/(double)temperatures[i])));
                             if (p < 0.2)
                             {   
-                                temperatures[i] -= alpha;
-                                float tem = temperatures[i];
-                                energies[i] = approx(temperatures[j], temperatures[i], energies[j], energies[i], (-1)*alpha);
-                                float ener = energies[i];
+                                temperatures[j] += alpha;
+                                tem = temperatures[j];
+
+                                energies[j] = approx(temperatures[i], temperatures[j], energies[i], energies[j], (-1)*alpha);
+                                en = energies[j];
                             }
-                            if (p > 0.2)
+                            if (p > 0.2 && temperatures[j] > temperatures[i])
                             {
-                                temperatures[i] += alpha;
-                                float tem = temperatures[i];
-                                energies[i] = approx(temperatures[j], temperatures[i], energies[j], energies[i], alpha);
-                                float ener = energies[i];
+                                temperatures[j] -= alpha;
+                                tem = temperatures[j];
+
+                                energies[j] = approx(temperatures[i], temperatures[j], energies[i], energies[j], alpha);
+                                en = energies[j];
                             }
                         }
+                        temperatures[i] = temperatures[j];
+                        tem = temperatures[j];
+
+                        energies[i] = energies[j];
+                        en = energies[j];
                     }
                 }
             }
         }
         
         std::sort(temperatures.begin(), temperatures.end());
-
+        //std::sort(energies.begin(), energies.end());
 
         return temperatures;
     };
@@ -239,7 +252,7 @@ public:
                     E_MEAN[i] += energy_mean(E_ARRAY[i], REPEAT);
                     E_MEAN_SQUARED[i] += energy_mean(E_ARRAY_SQUARED[i], REPEAT);
                 }
-
+                
                 E_MEAN_1 = E_MEAN;
 
                 for (int i = 0; i < NUM_OF_COPIES; i++)
