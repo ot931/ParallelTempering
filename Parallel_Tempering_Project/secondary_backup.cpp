@@ -6,7 +6,7 @@
 #include <random>
 #include <fstream>
 #include <time.h>
-#include <algorithm>
+
 
 // container's structure
 
@@ -90,9 +90,7 @@ public:
                     if (p < 0.2)
                     {
                         temperatures[i] = temperatures[j];
-                        float tem = temperatures[j];
                         energies[i] = energies[j];
-                        float ener = energies[j];
                         break;
                     }
 
@@ -104,16 +102,12 @@ public:
                             if (p < 0.2)
                             {   
                                 temperatures[i] -= alpha;
-                                float tem = temperatures[i];
                                 energies[i] = approx(temperatures[j], temperatures[i], energies[j], energies[i], (-1)*alpha);
-                                float ener = energies[i];
                             }
                             if (p > 0.2)
                             {
                                 temperatures[i] += alpha;
-                                float tem = temperatures[i];
                                 energies[i] = approx(temperatures[j], temperatures[i], energies[j], energies[i], alpha);
-                                float ener = energies[i];
                             }
                         }
                     }
@@ -121,9 +115,6 @@ public:
             }
         }
         
-        std::sort(temperatures.begin(), temperatures.end());
-
-
         return temperatures;
     };
 
@@ -238,18 +229,18 @@ public:
                 {
                     E_MEAN[i] += energy_mean(E_ARRAY[i], REPEAT);
                     E_MEAN_SQUARED[i] += energy_mean(E_ARRAY_SQUARED[i], REPEAT);
+
+                    E_MEAN_1 = E_MEAN;
+
+                    for (int i = 0; i < NUM_OF_COPIES; i++)
+                        E_MEAN_1[i] = E_MEAN[i]/(double)(m+1); 
+
+                    temperatures = temperature_normalize(temperatures, E_MEAN_1, 0.45, 100);
+                    
+                    for (int i = 0; i < NUM_OF_COPIES; i++)
+                        std::cout << temperatures[i] << " ";
+                    std::cout << std::endl;
                 }
-
-                E_MEAN_1 = E_MEAN;
-
-                for (int i = 0; i < NUM_OF_COPIES; i++)
-                    E_MEAN_1[i] = E_MEAN[i]/(double)(m+1); 
-
-                temperatures = temperature_normalize(temperatures, E_MEAN_1, 0.45, 100);
-                
-                for (int i = 0; i < NUM_OF_COPIES; i++)
-                    std::cout << temperatures[i] << " ";
-                std::cout << std::endl;
             }
             for (int i = NUM_OF_COPIES - 2; i > -1; i--)
             {
@@ -326,9 +317,9 @@ int main()
 {
 
     int num_of_copies = 10;
-    int num_of_steps = 10;
+    int num_of_steps = 30;
     int size = 4;
-    float percent = 0.1;
+    float percent = 0.25;
     int accuracy = num_of_steps*percent;
 
 
