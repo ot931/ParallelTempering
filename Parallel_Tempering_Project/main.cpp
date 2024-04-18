@@ -11,6 +11,8 @@
 
 // container's structure
 
+float probability();
+
 struct _TEMPERING_CONTAINER
 {
     std::vector<double> CAPACITY;
@@ -82,56 +84,52 @@ public:
     std::vector<float> temperature_normalize(std::vector<float> temperatures, std::vector<double> energies, float alpha, int tn_steps)
     {
         float tem;
-        float en;
+        double en;
         
-        for (int i = 1; i < NUM_OF_COPIES; i++)
+        for (int i = 0; i < NUM_OF_COPIES-1; i++)
         {
-            for (int j = i; j < NUM_OF_COPIES; j++)
+            for (int j = i + 1; j < NUM_OF_COPIES; j++)
             {
-                if (i != j)
-                {
-                    double p = std::pow(2.718282, (((double)energies[i] - (double)energies[j])*(1 /(double)temperatures[i] - 1 /(double)temperatures[j])));
-                    if (p < 0.2)
-                    {
-                        temperatures[i] = temperatures[j];
-                        energies[i] = energies[j];
+                    double p = std::pow(2.718282, (((double)energies[j] - (double)energies[i])*(1 /(double)temperatures[j] - 1 /(double)temperatures[i])));
+                    
 
-                        tem = temperatures[i];
-                        en = energies[i];
+                    if (p < 0.2 && temperatures[j] > temperatures[i])
+                    {
+                        temperatures[i+1] = temperatures[j];
+                        energies[i+1] = energies[j];
 
                         break;
                     }
 
                     if (j == NUM_OF_COPIES - 1)
                     {
+                        tem = temperatures[j];
+                        en = energies[j];
+
                         for (int k = 0; k < tn_steps; k++)
                         { 
-                            double p = std::pow(2.718282, (((double)energies[j] - (double)energies[i])*(1 /(double)temperatures[j]-1/(double)temperatures[i])));
+                            double p = std::pow(2.718282, (((double)en - (double)energies[i])*(1 /(double)tem-1/(double)temperatures[i])));
                             if (p < 0.2)
                             {   
-                                temperatures[j] += alpha;
-                                tem = temperatures[j];
+                                tem -= alpha;
 
-                                energies[j] = approx(temperatures[i], temperatures[j], energies[i], energies[j], (-1)*alpha);
-                                en = energies[j];
+                                en = approx(temperatures[i], tem, energies[i], en, (-1)*alpha);
                             }
-                            if (p > 0.2 && temperatures[j] > temperatures[i])
+                            if (p > 0.2)
                             {
-                                temperatures[j] -= alpha;
-                                tem = temperatures[j];
+                                tem += alpha;
 
-                                energies[j] = approx(temperatures[i], temperatures[j], energies[i], energies[j], alpha);
-                                en = energies[j];
+                                en = approx(temperatures[i], tem, energies[i], en, alpha);
                             }
                         }
-                        temperatures[i] = temperatures[j];
-                        tem = temperatures[j];
+                        temperatures[i+1] = tem;
 
-                        energies[i] = energies[j];
-                        en = energies[j];
+                        energies[i+1] = en;
                     }
+                    for (int i = 0; i < NUM_OF_COPIES-1; i++)
+                        std::cout << std::pow(2.718282, (((double)energies[i+1] - (double)energies[i])*(1 /(double)temperatures[i+1]-1/(double)temperatures[i]))) << " ";
+                    std::cout << std::endl;
                 }
-            }
         }
         
         std::sort(temperatures.begin(), temperatures.end());
@@ -257,7 +255,6 @@ public:
 
                 for (int i = 0; i < NUM_OF_COPIES; i++)
                     E_MEAN_1[i] = E_MEAN[i]/(double)(m+1); 
-
                 temperatures = temperature_normalize(temperatures, E_MEAN_1, 0.45, 100);
                 
                 for (int i = 0; i < NUM_OF_COPIES; i++)
@@ -427,3 +424,4 @@ int main()
 
     return 0;
 }
+
