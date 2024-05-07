@@ -24,20 +24,22 @@ struct _TEMPERING_CONTAINER
 class _SPIN_SYSTEM
 {
 private:
-    int SIZE, NUM_OF_COPIES, REPEAT, NUM_OF_STEPS, ACCURACY;
+    int SIZE, NUM_OF_COPIES, REPEAT, NUM_OF_STEPS, TN_STEPS, ACCURACY;
     float T_MIN, T_MAX;
     std::vector<std::vector<int>> CAPACITY;
     std::vector<std::vector<int>> ENERGY;
 public:
     //  Class constructor
-    _SPIN_SYSTEM(int _SIZE, int _NUM_OF_COPIES, int _REPEAT, int _NUM_OF_STEPS, int _ACCURACY, float _T_MIN, float _T_MAX)
+    _SPIN_SYSTEM(int _SIZE, int _NUM_OF_COPIES, int _REPEAT, int _NUM_OF_STEPS, int _TN_STEPS, int _ACCURACY, float _T_MIN, float _T_MAX)
         : SIZE(_SIZE),
         NUM_OF_COPIES(_NUM_OF_COPIES),
         REPEAT(_REPEAT),
         NUM_OF_STEPS(_NUM_OF_STEPS),
+        TN_STEPS(_TN_STEPS),
         ACCURACY(_ACCURACY),
         T_MIN(_T_MIN),
-        T_MAX(_T_MAX) {}
+        T_MAX(_T_MAX)
+    {}
 
     // functions of class
 
@@ -71,67 +73,81 @@ public:
             temperatures[i] = plus_delta_T;
             plus_delta_T += delta_T;
         }
-        
+
         return temperatures;
     };
 
     // Make probability of exchange to 20%
     float approx(float T1, float T2, double E1, double E2, float alpha)
     {
-        return ((T2+alpha-T1)/(T2-T1))*(E2-E1)+E1;
+        return ((T2 + alpha - T1) / (T2 - T1)) * (E2 - E1) + E1;
     };
 
     std::vector<float> temperature_normalize(std::vector<float> temperatures, std::vector<double> energies, float alpha, int tn_steps)
     {
+
         float tem;
         double en;
-        
-        for (int i = 0; i < NUM_OF_COPIES-1; i++)
+
+        for (int i = 0; i < NUM_OF_COPIES - 1; i++)
         {
             for (int j = i + 1; j < NUM_OF_COPIES; j++)
             {
-                    double p = std::pow(2.718282, (((double)energies[j] - (double)energies[i])*(1 /(double)temperatures[j] - 1 /(double)temperatures[i])));
-                    
+                double p = std::pow(2.718282, (((double)energies[j] - (double)energies[i]) * (1 / (double)temperatures[j] - 1 / (double)temperatures[i])));
 
-                    if (p < 0.2 && temperatures[j] > temperatures[i])
-                    {
-                        temperatures[i+1] = temperatures[j];
-                        energies[i+1] = energies[j];
+                if (p < 0.2 && temperatures[j] > temperatures[i])
+                {
+                    temperatures[i + 1] = temperatures[j];
+                    energies[i + 1] = energies[j];
 
-                        break;
-                    }
-
-                    if (j == NUM_OF_COPIES - 1)
-                    {
-                        tem = temperatures[j];
-                        en = energies[j];
-
-                        for (int k = 0; k < tn_steps; k++)
-                        { 
-                            double p = std::pow(2.718282, (((double)en - (double)energies[i])*(1 /(double)tem-1/(double)temperatures[i])));
-                            if (p < 0.2)
-                            {   
-                                tem -= alpha;
-
-                                en = approx(temperatures[i], tem, energies[i], en, (-1)*alpha);
-                            }
-                            if (p > 0.2)
-                            {
-                                tem += alpha;
-
-                                en = approx(temperatures[i], tem, energies[i], en, alpha);
-                            }
-                        }
-                        temperatures[i+1] = tem;
-
-                        energies[i+1] = en;
-                    }
-                    for (int i = 0; i < NUM_OF_COPIES-1; i++)
-                        std::cout << std::pow(2.718282, (((double)energies[i+1] - (double)energies[i])*(1 /(double)temperatures[i+1]-1/(double)temperatures[i]))) << " ";
-                    std::cout << std::endl;
+                    break;
                 }
+
+                if (j == NUM_OF_COPIES - 1)
+                {
+                    tem = temperatures[j];
+                    en = energies[j];
+
+                    for (int k = 0; k < tn_steps; k++)
+                    {
+                        if (tem == temperatures[i] || en == energies[i])
+                        {
+                            tem += 2 * alpha;
+
+                            en = approx(temperatures[i], tem, energies[i], en + 2 * alpha, alpha);
+
+                            continue;
+
+                        }
+
+                        double p = std::pow(2.718282, (((double)en - (double)energies[i]) * (1 / (double)tem - 1 / (double)temperatures[i])));
+                        
+                        if (p > 0.2 || tem < temperatures[i])
+                        {
+                            tem += alpha;
+
+                            en = approx(temperatures[i], tem, energies[i], en, alpha);
+
+                            continue;
+                        }
+                        if (p < 0.2)
+                        {
+                            tem -= alpha;
+
+                            en = approx(temperatures[i], tem, energies[i], en, (-1) * alpha);
+
+                        }
+                    }
+                    temperatures[i + 1] = tem;
+
+
+                    energies[i + 1] = en;
+
+                }
+ 
+            }
         }
-        
+
         std::sort(temperatures.begin(), temperatures.end());
         //std::sort(energies.begin(), energies.end());
 
@@ -139,11 +155,11 @@ public:
     };
 
     double energy_mean(std::vector<double> e_arr, int REPEAT)
-    {   
+    {
         double e_sum = 0;
         for (int i = 0; i < REPEAT; i++) e_sum += e_arr[i];
 
-        return e_sum/(double)REPEAT;
+        return e_sum / (double)REPEAT;
     };
 
     int energy_metropolis(std::vector<int> state)
@@ -181,14 +197,14 @@ public:
         std::vector<double> capacity(NUM_OF_COPIES);
         std::vector<double> energy(NUM_OF_COPIES);
 
-        std::vector<std::vector<double>> E_ARRAY (NUM_OF_COPIES, std::vector<double>(REPEAT));
-        std::vector<std::vector<double>> E_ARRAY_SQUARED (NUM_OF_COPIES, std::vector<double>(REPEAT));
+        std::vector<std::vector<double>> E_ARRAY(NUM_OF_COPIES, std::vector<double>(REPEAT));
+        std::vector<std::vector<double>> E_ARRAY_SQUARED(NUM_OF_COPIES, std::vector<double>(REPEAT));
 
-        std::vector<double> E_MEAN_SQUARED (NUM_OF_COPIES);
-        std::vector<double> E_MEAN (NUM_OF_COPIES);
+        std::vector<double> E_MEAN_SQUARED(NUM_OF_COPIES);
+        std::vector<double> E_MEAN(NUM_OF_COPIES);
 
-        std::mt19937 gen ((int)time(0));
-        std::uniform_real_distribution<> urd (0., 1.);
+        std::mt19937 gen((int)time(0));
+        std::uniform_real_distribution<> urd(0., 1.);
 
 
         // feelling zeroes in parametres
@@ -235,13 +251,13 @@ public:
                         states[i] = copied_state;
                         // if (delta_E > 0) std::cout << "ERROR";
                     }
-                
+
                     E_ARRAY[i][j] = energy_metropolis(states[i]);
                     E_ARRAY_SQUARED[i][j] = std::pow(E_ARRAY[i][j], 2);
                 }
             }
 
-            std::vector<double> E_MEAN_1 (NUM_OF_COPIES);
+            std::vector<double> E_MEAN_1(NUM_OF_COPIES);
 
             if (m > ACCURACY)
             {
@@ -250,20 +266,24 @@ public:
                     E_MEAN[i] += energy_mean(E_ARRAY[i], REPEAT);
                     E_MEAN_SQUARED[i] += energy_mean(E_ARRAY_SQUARED[i], REPEAT);
                 }
-                
+
                 E_MEAN_1 = E_MEAN;
 
-                for (int i = 0; i < NUM_OF_COPIES; i++)
-                    E_MEAN_1[i] = E_MEAN[i]/(double)(m+1); 
-                temperatures = temperature_normalize(temperatures, E_MEAN_1, 0.45, 100);
-                
-                for (int i = 0; i < NUM_OF_COPIES; i++)
-                    std::cout << temperatures[i] << " ";
-                std::cout << std::endl;
+                if (m == ACCURACY + 1)
+                {
+                    for (int i = 0; i < NUM_OF_COPIES; i++)
+                        E_MEAN_1[i] = E_MEAN[i] / (double)(m + 1);
+
+                    temperatures = temperature_normalize(temperatures, E_MEAN_1, 0.45, TN_STEPS);
+
+                    for (int i = 0; i < NUM_OF_COPIES; i++)
+                        std::cout << temperatures[i] << " ";
+                    std::cout << std::endl;
+                }
             }
             for (int i = NUM_OF_COPIES - 2; i > -1; i--)
             {
-                double p = std::pow(2.718282, (((double)energy_mean(E_ARRAY[i+1], REPEAT)/(double)(m + 1) - (double)energy_mean(E_ARRAY[i], REPEAT)/(double)(m + 1))*(1 /(double)temperatures[i + 1] - 1 /(double)temperatures[i])));
+                double p = std::pow(2.718282, (((double)energy_mean(E_ARRAY[i + 1], REPEAT) / (double)(m + 1) - (double)energy_mean(E_ARRAY[i], REPEAT) / (double)(m + 1)) * (1 / (double)temperatures[i + 1] - 1 / (double)temperatures[i])));
 
                 if (urd(gen) < p)
                 {
@@ -278,8 +298,8 @@ public:
 
         for (int i = 0; i < NUM_OF_COPIES; i++)
         {
-            E_MEAN[i] /= (NUM_OF_STEPS-(ACCURACY+1));
-            E_MEAN_SQUARED[i] /= (NUM_OF_STEPS-(ACCURACY+1));
+            E_MEAN[i] /= (NUM_OF_STEPS - (ACCURACY + 1));
+            E_MEAN_SQUARED[i] /= (NUM_OF_STEPS - (ACCURACY + 1));
 
         }
 
@@ -303,9 +323,9 @@ public:
 
 float probability(std::vector<std::vector<int>> probabilities, int num_of_copies, int NUM_OF_STEPS)
 {
-    int num = num_of_copies-1;
+    int num = num_of_copies - 1;
     int probabilities_size = 0;
-    std::vector<float> probabilities_1d (num);
+    std::vector<float> probabilities_1d(num);
 
     float sum;
 
@@ -318,31 +338,31 @@ float probability(std::vector<std::vector<int>> probabilities, int num_of_copies
 
         for (int j = 0; j < NUM_OF_STEPS; j++)
             sum += probabilities[j][i];
-        probabilities_1d[i] = (float)sum/(float)NUM_OF_STEPS;
+        probabilities_1d[i] = (float)sum / (float)NUM_OF_STEPS;
     }
 
     sum = 0;
 
     for (float x : probabilities_1d)
         sum += x;
-    
 
 
-    return ((float)sum/(float)(num))*100;
+
+    return ((float)sum / (float)(num)) * 100;
 
 };
 
 int main()
 {
-
-    int num_of_copies = 10;
+    int num_of_copies = 4;
     int num_of_steps = 10;
+    int tn_steps = 2500;
     int size = 4;
     float percent = 0.1;
-    int accuracy = num_of_steps*percent;
+    int accuracy = num_of_steps * percent;
 
 
-    _SPIN_SYSTEM spin_system{size, num_of_copies, 1500 * (int)std::pow(4,2), num_of_steps, accuracy, 0.1, 5};
+    _SPIN_SYSTEM spin_system{ size, num_of_copies, 1500 * (int)std::pow(4,2), num_of_steps, tn_steps, accuracy, 0.1, 5 };
     //std::cout << 1500*(int)std::pow(4,2);
     std::vector<std::vector<int>> initial_states = spin_system.random_states();
     std::vector<float> temperatures = spin_system.temperatures_generate();
@@ -359,7 +379,7 @@ int main()
 
     temperatures = tempering_container.TEMPERATURES;
 
-    std::cout << "Executing time: " << (double)(clock() - tStart)/CLOCKS_PER_SEC <<  " sec. \n";
+    std::cout << "Executing time: " << (double)(clock() - tStart) / CLOCKS_PER_SEC << " sec. \n";
 
     for (double x : temperatures)
         std::cout << x << " ";
@@ -382,9 +402,9 @@ int main()
     std::ofstream out;
 
 
-// Temperatures
+    // Temperatures
     out.open("Temperatures.txt");
-    
+
     if (out.is_open())
     {
         for (double x : temperatures)
@@ -394,9 +414,9 @@ int main()
     out.close();
 
 
-// Capacity
+    // Capacity
     out.open("Capacity.txt");
-    
+
     if (out.is_open())
     {
 
@@ -408,9 +428,9 @@ int main()
     out.close();
 
 
-// Energy
+    // Energy
     out.open("Energy.txt");
-    
+
     if (out.is_open())
     {
 
@@ -424,4 +444,3 @@ int main()
 
     return 0;
 }
-
