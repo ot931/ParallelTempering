@@ -78,78 +78,88 @@ public:
     };
 
     // Make probability of exchange to 20%
-    float approx(float T1, float T2, double E1, double E2, float alpha)
+    float energy_approx(float T1, float T2, double E1, double E2, float alpha)
     {
         return ((T2 + alpha - T1) / (T2 - T1)) * (E2 - E1) + E1;
     };
 
-    std::vector<float> temperature_normalize(std::vector<float> temperatures, std::vector<double> energies, float alpha, int tn_steps)
+    float approximation(std::vector<double>& energies, std::vector<float>& temperatures, int tn_steps, float alpha, int i, int j)
     {
+        float tem = *std::max_element(temperatures.begin(), temperatures.end());
+        double en = *std::max_element(energies.begin(), energies.end());
+        float t = 0;
 
-        float tem;
-        double en;
-
-        for (int i = 0; i < NUM_OF_COPIES - 1; i++)
+        for (int k = 0; k < tn_steps; k++)
         {
-            for (int j = i + 1; j < NUM_OF_COPIES; j++)
+            if (tem == temperatures[i] || en == energies[i])
             {
-                double p = std::pow(2.718282, (((double)energies[j] - (double)energies[i]) * (1 / (double)temperatures[j] - 1 / (double)temperatures[i])));
+                if (t == 1) t = 1;
 
-                if (p < 0.2 && temperatures[j] > temperatures[i])
-                {
-                    temperatures[i + 1] = temperatures[j];
-                    energies[i + 1] = energies[j];
+                tem += 2 * alpha;
 
-                    break;
-                }
+                en = energy_approx(temperatures[i], tem, energies[i], en + 2 * alpha, alpha);
 
-                if (j == NUM_OF_COPIES - 1)
-                {
-                    tem = temperatures[j];
-                    en = energies[j];
+                continue;
 
-                    for (int k = 0; k < tn_steps; k++)
-                    {
-                        if (tem == temperatures[i] || en == energies[i])
-                        {
-                            tem += 2 * alpha;
+            }
 
-                            en = approx(temperatures[i], tem, energies[i], en + 2 * alpha, alpha);
+            double p = std::pow(2.718282, (((double)en - (double)energies[i]) * (1 / (double)tem - 1 / (double)temperatures[i])));
 
-                            continue;
+            if (p > 0.2 || tem < temperatures[i])
+            {
+                tem += alpha;
 
-                        }
+                en = energy_approx(temperatures[i], tem, energies[i], en, alpha);
 
-                        double p = std::pow(2.718282, (((double)en - (double)energies[i]) * (1 / (double)tem - 1 / (double)temperatures[i])));
-                        
-                        if (p > 0.2 || tem < temperatures[i])
-                        {
-                            tem += alpha;
+                continue;
+            }
+            if (p < 0.2)
+            {
+                if (t == 3) break;
 
-                            en = approx(temperatures[i], tem, energies[i], en, alpha);
+                tem -= alpha;
 
-                            continue;
-                        }
-                        if (p < 0.2)
-                        {
-                            tem -= alpha;
-
-                            en = approx(temperatures[i], tem, energies[i], en, (-1) * alpha);
-
-                        }
-                    }
-                    temperatures[i + 1] = tem;
-
-
-                    energies[i + 1] = en;
-
-                }
- 
+                en = energy_approx(temperatures[i], tem, energies[i], en, (-1) * alpha);
+                t += 1;
             }
         }
+        temperatures[i + 1] = tem;
 
-        std::sort(temperatures.begin(), temperatures.end());
-        //std::sort(energies.begin(), energies.end());
+
+        energies[i + 1] = en;
+
+        return 0;
+    };
+
+    std::vector<float> temperature_normalize(std::vector<float> temperatures, std::vector<double> energies, float alpha, int tn_steps)
+    {
+        for (int l = 0; l < 100; l++)
+        {
+            for (int i = 0; i < NUM_OF_COPIES - 1; i++)
+            {
+                for (int j = i + 1; j < NUM_OF_COPIES; j++)
+                {
+                    double p = std::pow(2.718282, (((double)energies[j] - (double)energies[i]) * (1 / (double)temperatures[j] - 1 / (double)temperatures[i])));
+
+                    if (p < 0.2 && temperatures[j] > temperatures[i])
+                    {
+
+                        temperatures[i + 1] = temperatures[j];
+                        energies[i + 1] = energies[j];
+
+                        break;
+                    }
+
+                    if (j == NUM_OF_COPIES - 1)
+                    {
+                        approximation(energies, temperatures, tn_steps, alpha, i, j);
+                    }
+                }
+            }
+
+            std::sort(temperatures.begin(), temperatures.end());
+            //std::sort(energies.begin(), energies.end());
+        }
 
         return temperatures;
     };
@@ -267,12 +277,11 @@ public:
                     E_MEAN_SQUARED[i] += energy_mean(E_ARRAY_SQUARED[i], REPEAT);
                 }
 
-                E_MEAN_1 = E_MEAN;
+
 
                 if (m == ACCURACY + 1)
                 {
-                    for (int i = 0; i < NUM_OF_COPIES; i++)
-                        E_MEAN_1[i] = E_MEAN[i] / (double)(m + 1);
+                    E_MEAN_1 = E_MEAN;
 
                     temperatures = temperature_normalize(temperatures, E_MEAN_1, 0.45, TN_STEPS);
 
@@ -354,9 +363,9 @@ float probability(std::vector<std::vector<int>> probabilities, int num_of_copies
 
 int main()
 {
-    int num_of_copies = 4;
-    int num_of_steps = 10;
-    int tn_steps = 2500;
+    int num_of_copies = 6;
+    int num_of_steps = 20;
+    int tn_steps = 10000;
     int size = 4;
     float percent = 0.1;
     int accuracy = num_of_steps * percent;
