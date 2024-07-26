@@ -7,7 +7,7 @@
 #include <fstream>
 #include <time.h>
 #include <algorithm>
-
+#include <cstdlib>
 
 // container's structure
 
@@ -83,103 +83,34 @@ public:
         return ((T2 + delta - T1) / (T2 - T1)) * (E2 - E1) + E1;
     };
 
-    float approximation(std::vector<double>& energies, std::vector<float>& temperatures, int tn_steps, double e_0, float t_0, float alpha, int m, int i, int j)
+    float approximation(std::vector<double>& energies, std::vector<float>& temperatures, int tn_steps, double e_0, double e_1, float t_0, float t_1, float alpha, int i)
     {
-
-        float tem;
-        double en;
-        float t;
+        double en = e_1;
         float delta = 0;
+        int stop = 0;
 
-
-        if (m > ACCURACY + 1)
+        for (int k = 0; k < tn_steps; k++)
         {
-            tem = t_0;
-            en = e_0;
-            t = 0;
-           
-            for (int k = 0; k < tn_steps; k++)
+            double p = std::pow(2.718282, (((double)e_0 - (double)en) * ((1 / (double)t_0) - 1 / (double)(t_1 + delta))));
+
+            if (p > 0.2)
             {
-                if ((tem + delta) == temperatures[i+1] || (en == energies[i+1]))
-                {
-                    if (t == 1) t = 1;
-
-                    delta += 2 * alpha;
-
-                    en = energy_approx(tem + delta, temperatures[i + 1], e_0 + delta, energies[i + 1], delta);
-
-                    continue;
-
-                }
-
-                double p = std::pow(2.718282, (((double)en - (double)energies[i+1]) * (1 / (double)(tem+delta)) - 1 / (double)temperatures[i+1]));
-
-                if (p > 0.2 || (tem+delta) < temperatures[i+1])
-                {
-                    delta += alpha;
-
-                    en = energy_approx(tem, temperatures[i + 1], e_0, energies[i + 1], delta);
-
-                    continue;
-                }
-                if (p < 0.2)
-                {
-                    if (t == 3) break;
-
-                    delta -= alpha;
-
-                    en = energy_approx(tem, temperatures[i + 1], e_0, energies[i + 1], delta);
-                    t += 1;
-                }
-            }
-            
-        }
-        else
-        {
-            tem = *std::max_element(temperatures.begin(), temperatures.end());
-            en = *std::max_element(energies.begin(), energies.end());
-            double en_0 = en;
-            t = 0;
-
-            for (int k = 0; k < tn_steps; k++)
-            {
-                if ((tem+delta) == temperatures[i] || en == energies[i])
-                {
-                    if (t == 1) t = 1;
-
-                    delta += alpha;
-
-                    en = energy_approx(temperatures[i], tem + delta, energies[i], en_0 + delta, delta);
-
-                    continue;
-
-                }
-
-                double p = std::pow(2.718282, (((double)en - (double)energies[i]) * (1 / (double)(tem+delta) - 1 / (double)temperatures[i])));
-
-                if (p > 0.2 || (tem+delta) < temperatures[i])
-                {
-                    delta += alpha;
-
-                    en = energy_approx(temperatures[i], tem, energies[i], en_0, delta);
-
-                    continue;
-                }
-
-                if (p < 0.2)
-                {
-                    if (t == 3) break;
-
-                    delta -= alpha;
-
-                    en = energy_approx(temperatures[i], tem, energies[i], en_0, delta);
-                    t += 1;
-                }
+                delta += alpha;
+                en = energy_approx(t_0, t_1, e_0, e_1, delta);
             }
 
+            if (p < 0.2 || t_0 > temperatures[i+1])
+            {
+                if (stop == 30) break;
+
+                delta -= alpha;
+                en = energy_approx(t_0, t_1, e_0, e_1, delta);
+
+                stop += 1;
+            }
         }
 
-        temperatures[i + 1] = tem+delta;
+        temperatures[i + 1] = t_1 + delta;
         energies[i + 1] = en;
 
         return 0;
@@ -187,44 +118,69 @@ public:
 
     std::vector<float> temperature_normalize(std::vector<float> temperatures, std::vector<double> energies, float alpha, int tn_steps, int m)
     {
-        float t_0 = 0;
-        double e_0 = 0;
+        std::vector<float> temperatures_0 = temperatures;
+        std::vector<double> energies_0 = energies;
+        float t_0 = 0; float t_1 = 0;
+        double e_0 = 0; double e_1 = 0;
 
         for (int i = 0; i < NUM_OF_COPIES - 1; i++)
         {
-            for (int j = i + 1; j < NUM_OF_COPIES; j++)
-            {
-                double p = std::pow(2.718282, (((double)energies[j] - (double)energies[i]) * (1 / (double)temperatures[j] - 1 / (double)temperatures[i])));
+            t_0 = temperatures[i];  t_1 = temperatures_0[i + 1];
+            e_0 = energies[i];      e_1 = energies_0[i + 1];
 
-                if (p < 0.2 && temperatures[j] > temperatures[i])
-                {
-
-                    e_0 = energies[i+1];
-                    t_0 = temperatures[i+1];
-
-                    temperatures[i + 1] = temperatures[j];
-                    energies[i + 1] = energies[j];
-
-
-                    break;
-                }
-
-                if (j == NUM_OF_COPIES - 1)
-                {
-                    approximation(energies, temperatures, tn_steps, e_0, t_0, alpha, m, i, j);
-                }
-            }
+            approximation(energies, temperatures, tn_steps, e_0, e_1, t_0, t_1, alpha, i);
 
             //std::sort(energies.begin(), energies.end());
         }
-        std::sort(temperatures.begin(), temperatures.end());
-        std::sort(energies.begin(), energies.end());
-       
+
+
         std::cout << "energies: ";
         for (int i = 0; i < NUM_OF_COPIES; i++)
             std::cout << energies[i] << " ";
         std::cout << std::endl;
-        
+
+        std::ofstream out;
+
+        out.open("Temperatures_bf.txt", std::fstream::app);
+        if (out.is_open())
+        {
+            for (double x : temperatures_0)
+                out << x << " ";
+            out << " \n";
+        }
+        out.close();
+
+        out.open("Temperatures_af.txt", std::fstream::app);
+        if (out.is_open())
+        {
+            for (double x : temperatures)
+                out << x << " ";
+            out << " \n";
+        }
+        out.close();
+
+
+        out.open("Energies_bf.txt", std::fstream::app);
+        if (out.is_open())
+        {
+            for (double x : energies_0)
+                out << x << " ";
+            out << " \n";
+        }
+        out.close();
+
+        out.open("Energies_af.txt", std::fstream::app);
+        if (out.is_open())
+        {
+            for (double x : energies)
+                out << x << " ";
+            out << " \n";
+        }
+        out.close();
+
+        std::sort(temperatures.begin(), temperatures.end());
+        std::sort(energies.begin(), energies.end());
+
         return temperatures;
     };
 
@@ -342,14 +298,14 @@ public:
                 }
 
                 for (int i = 0; i < NUM_OF_COPIES; i++)
-                    E_MEAN_1[i] = E_MEAN[i]/(m - ACCURACY);
+                    E_MEAN_1[i] = E_MEAN[i] / (m - ACCURACY);
 
                 temperatures = temperature_normalize(temperatures, E_MEAN_1, 0.45, TN_STEPS, m);
-                
+
                 for (int i = 0; i < NUM_OF_COPIES; i++)
                     std::cout << temperatures[i] << " ";
                 std::cout << std::endl;
-                
+
             }
             for (int i = NUM_OF_COPIES - 2; i > -1; i--)
             {
@@ -422,6 +378,8 @@ float probability(std::vector<std::vector<int>> probabilities, int num_of_copies
 
 };
 
+
+
 int main()
 {
     int num_of_copies = 6;
@@ -449,6 +407,7 @@ int main()
 
     temperatures = tempering_container.TEMPERATURES;
 
+
     std::cout << "Executing time: " << (double)(clock() - tStart) / CLOCKS_PER_SEC << " sec. \n";
 
     for (double x : temperatures)
@@ -470,7 +429,6 @@ int main()
     std::cout << probability(successful_copies, num_of_copies, num_of_steps) << " %" << "\n";
 
     std::ofstream out;
-
 
     // Temperatures
     out.open("Temperatures.txt");
@@ -510,7 +468,6 @@ int main()
 
     }
     out.close();
-
 
     return 0;
 }
