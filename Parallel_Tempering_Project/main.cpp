@@ -24,18 +24,17 @@ struct _TEMPERING_CONTAINER
 class _SPIN_SYSTEM
 {
 private:
-    int SIZE, NUM_OF_COPIES, REPEAT, NUM_OF_STEPS, TN_STEPS, ACCURACY, ITERATIONS;
+    int SIZE, NUM_OF_COPIES, REPEAT, NUM_OF_STEPS, ACCURACY, ITERATIONS;
     float T_MIN, T_MAX, ALPHA;
     std::vector<std::vector<int>> CAPACITY;
     std::vector<std::vector<int>> ENERGY;
 public:
     //  Class constructor
-    _SPIN_SYSTEM(int _SIZE, int _NUM_OF_COPIES, int _REPEAT, int _NUM_OF_STEPS, int _TN_STEPS, int _ACCURACY, int _ITERATIONS, float _ALPHA_, float _T_MIN, float _T_MAX)
+    _SPIN_SYSTEM(int _SIZE, int _NUM_OF_COPIES, int _REPEAT, int _NUM_OF_STEPS, int _ACCURACY, int _ITERATIONS, float _ALPHA_, float _T_MIN, float _T_MAX)
         : SIZE(_SIZE),
         NUM_OF_COPIES(_NUM_OF_COPIES),
         REPEAT(_REPEAT),
         NUM_OF_STEPS(_NUM_OF_STEPS),
-        TN_STEPS(_TN_STEPS),
         ACCURACY(_ACCURACY),
         ITERATIONS(_ITERATIONS),
         ALPHA(_ALPHA_),
@@ -125,27 +124,27 @@ public:
 
     };
 
-    // Make probability of exchange to 20%
+    // linear dependence of energy from temperature formula 
     float energy_approx(float T1, float T2, double E1, double E2, float delta)
     {
         return ((T2 + delta - T1) / (T2 - T1)) * (E2 - E1) + E1;
     };
 
-    void approximation(std::vector<double>& energies, std::vector<float>& temperatures, int tn_steps, double e_0, double e_1, float t_0, float t_1, float alpha, int i)
+    // Make probability of exchange to 20%
+    void approximation(std::vector<double>& energies, std::vector<float>& temperatures,  double e_0, double e_1, float t_0, float t_1, float alpha, int i)
     {
         double en = e_1;
         float delta = 0;
-        int stop = 0;
         float t_stop;
         double e_stop;
 
         if (i < NUM_OF_COPIES - 2)
         {
-            t_stop = (temperatures[i + 2] - temperatures[i + 1]) / 2;
-            e_stop = (energies[i + 2] - energies[i + 2]) / 2;
+            t_stop = (temperatures[i + 2] - temperatures[i + 1]) / 4;
+            e_stop = (energies[i + 2] - energies[i + 1]) / 4;
         }
 
-        for (int k = 0; k < tn_steps; k++)
+        while (true)
         {
             double p = std::pow(2.718282, (((double)e_0 - (double)en) * ((1 / (double)t_0) - 1 / (double)(t_1 + delta))));
 
@@ -153,17 +152,19 @@ public:
                 || ((i < NUM_OF_COPIES - 2) && (t_1 + delta) > (t_1 + t_stop))
                 || ((i < NUM_OF_COPIES - 2) && en > (e_1 + e_stop)))
             {
-                if (stop == 10)
-                {
-                    delta -= alpha;
-                    en = energy_approx(t_0, t_1, e_0, e_1, delta);
-                    break;
-                }
 
                 delta -= alpha;
                 en = energy_approx(t_0, t_1, e_0, e_1, delta);
 
-                stop += 1;
+                double p = std::pow(2.718282, (((double)e_0 - (double)en) * ((1 / (double)t_0) - 1 / (double)(t_1 + delta))));
+
+                if (p > 0.2)
+                {
+                    delta += alpha;
+                    en = energy_approx(t_0, t_1, e_0, e_1, delta);
+
+                    break;
+                }
 
                 continue;
             }
@@ -172,6 +173,18 @@ public:
             {
                 delta += alpha;
                 en = energy_approx(t_0, t_1, e_0, e_1, delta);
+
+                double p = std::pow(2.718282, (((double)e_0 - (double)en) * ((1 / (double)t_0) - 1 / (double)(t_1 + delta))));
+
+                if (p < 0.2
+                    || ((i < NUM_OF_COPIES - 2) && (t_1 + delta) > (t_1 + t_stop))
+                    || ((i < NUM_OF_COPIES - 2) && en > (e_1 + e_stop)))
+                {
+                    delta -= alpha;
+                    en = energy_approx(t_0, t_1, e_0, e_1, delta);
+
+                    break;
+                }
             }
 
         }
@@ -181,7 +194,7 @@ public:
 
     };
 
-    std::vector<float> temperature_normalize(std::vector<float> temperatures, std::vector<double> energies, float alpha, int tn_steps, int iterations, int m)
+    std::vector<float> temperature_normalize(std::vector<float> temperatures, std::vector<double> energies, float alpha, int iterations, int m)
     {
         std::vector<float> temperatures_0;
         std::vector<double> energies_0;
@@ -195,36 +208,21 @@ public:
 
             for (int i = 0; i < NUM_OF_COPIES - 1; i++)
             {
+
                 t_0 = temperatures[i];  t_1 = temperatures_0[i + 1];
                 e_0 = energies[i];      e_1 = energies_0[i + 1];
 
-                approximation(energies, temperatures, tn_steps, e_0, e_1, t_0, t_1, alpha, i);
+                approximation(energies, temperatures,  e_0, e_1, t_0, t_1, alpha, i);
 
             }
-            //file_writing(energies, energies_0, temperatures, temperatures_0);
-            /*
-            std::cout << "temperatures: ";
-            for (int i = 0; i < NUM_OF_COPIES; i++)
-                std::cout << temperatures[i] << " ";
-            std::cout << std::endl;
+            file_writing(energies, energies_0, temperatures, temperatures_0);
 
-            std::cout << "energies: ";
-            for (int i = 0; i < NUM_OF_COPIES; i++)
-                std::cout << energies[i] << " ";
-            std::cout << std::endl;
-            */
         }
-
-        //std::sort(temperatures.begin(), temperatures.end());
-        //std::sort(energies.begin(), energies.end());
         
         std::cout << "energies: ";
         for (int i = 0; i < NUM_OF_COPIES; i++)
             std::cout << energies[i] << " ";
         std::cout << std::endl;
-        
-        // std::sort(temperatures.begin(), temperatures.end());
-        // std::sort(energies.begin(), energies.end());
 
         return temperatures;
     };
@@ -302,8 +300,33 @@ public:
 
         for (int m = 0; m < NUM_OF_STEPS; ++m)
         {
+
+            //Metropolis algorithm
             for (int i = 0; i < NUM_OF_COPIES; ++i)
             {
+                int Heat_steps = 5000;
+
+                for (int j = 0; j < Heat_steps; ++j)
+                {
+                    int k = rand() % (SIZE * SIZE);
+
+                    std::vector<int> copied_state = states[i];
+
+                    copied_state[k] = (-1) * copied_state[k];
+
+                    int E1 = energy_metropolis(states[i]);
+                    int E2 = energy_metropolis(copied_state);
+                    int delta_E = E2 - E1;
+
+                    double one = urd(gen);
+                    double p = std::pow(2.718282, (-1) * delta_E / temperatures[i]);
+
+
+                    if (one < p)
+                    {
+                        states[i] = copied_state;
+                    }
+                }
 
                 for (int j = 0; j < REPEAT; ++j)
                 {
@@ -324,7 +347,6 @@ public:
                     if (one < p)
                     {
                         states[i] = copied_state;
-                        // if (delta_E > 0) std::cout << "ERROR";
                     }
 
                     E_ARRAY[i][j] = energy_metropolis(states[i]);
@@ -334,6 +356,7 @@ public:
 
             std::vector<double> E_MEAN_1(NUM_OF_COPIES);
 
+            //Processing energies obtained by Metropolis, then pass processed energies in approximation algorithm
             if (m > ACCURACY)
             {
                 for (int i = 0; i < NUM_OF_COPIES; i++)
@@ -345,12 +368,13 @@ public:
                 for (int i = 0; i < NUM_OF_COPIES; i++)
                     E_MEAN_1[i] = E_MEAN[i] / (m - ACCURACY);
 
-                temperatures = temperature_normalize(temperatures, E_MEAN_1, ALPHA, TN_STEPS, ITERATIONS, m);
+                temperatures = temperature_normalize(temperatures, E_MEAN_1, ALPHA, ITERATIONS, m);
 
                 for (int i = 0; i < NUM_OF_COPIES; i++)
                     std::cout << temperatures[i] << " ";
                 std::cout << std::endl;
 
+                //Computing probabilities of neightbours replicas exchanges and collecting statistics of successed replicas exchanges 
                 for (int i = NUM_OF_COPIES - 2; i > -1; i--)
                 {
                     double p = std::pow(2.718282, (((double)energy_mean(E_ARRAY[i + 1], REPEAT) / (double)(m + 1) - (double)energy_mean(E_ARRAY[i], REPEAT) / (double)(m + 1)) * (1 / (double)temperatures[i + 1] - 1 / (double)temperatures[i])));
@@ -368,6 +392,8 @@ public:
 
         }
 
+
+        //Computing mean energy from all Monte-carlo steps
         for (int i = 0; i < NUM_OF_COPIES; i++)
         {
             E_MEAN[i] /= (NUM_OF_STEPS - (ACCURACY + 1));
@@ -428,16 +454,15 @@ float probability(std::vector<std::vector<int>> probabilities, int num_of_copies
 
 int main()
 {
-    int num_of_copies = 5;
-    int num_of_steps = 16;
-    int tn_steps = 50000;
-    int iterations = 320;
+    int num_of_copies = 4;
+    int num_of_steps = 5;
+    int iterations = 30;
     int size = 4;
     float percent = 0.1;
     int accuracy = num_of_steps * percent;
     int Metropolice_const = 20000;
     int Repeat = Metropolice_const * size * size;
-    float alpha = 0.0005;
+    float alpha = 0.0001;
 
     std::ofstream out;
 
@@ -451,8 +476,7 @@ int main()
     out.open("Energies_af.txt");
     out.close();
 
-    _SPIN_SYSTEM spin_system{ size, num_of_copies, Repeat, num_of_steps, tn_steps, accuracy, iterations, alpha, 0.1, 7 };
-    //std::cout << 1500*(int)std::pow(4,2);
+    _SPIN_SYSTEM spin_system{ size, num_of_copies, Repeat, num_of_steps, accuracy, iterations, alpha, 0.1, 3.5 };
     std::vector<std::vector<int>> initial_states = spin_system.random_states();
     std::vector<float> temperatures = spin_system.temperatures_generate();
 
